@@ -1,27 +1,31 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import ProtectedRoute from './ProtectedRoute'
-import DashboardLayout from '../layouts/DashboardLayout'
+import { Navigate, Route, Routes } from "react-router-dom";
+import DashboardLayout from "../layouts/DashboardLayout";
+import ProtectedRoute from "./ProtectedRoute";
 
-import Login from '../pages/Login'
-import Signup from '../pages/Signup'
-import ForgotPassword from '../pages/ForgotPassword'
-import Dashboard from '../pages/Dashboard'
-import Products from '../pages/Products'
-import AddProduct from '../pages/AddProduct'
-import EditProduct from '../pages/EditProduct'
-import ProductDetails from '../pages/ProductDetails'
-import ExpiryMonitor from '../pages/ExpiryMonitor'
-import Alerts from '../pages/Alerts'
-import Reports from '../pages/Reports'
-import Settings from '../pages/Settings'
-import Help from '../pages/Help'
+import AddProduct from "../pages/AddProduct";
+import Alerts from "../pages/Alerts";
+import CheckEmail from "../pages/CheckEmail";
+import Dashboard from "../pages/Dashboard";
+import EditProduct from "../pages/EditProduct";
+import ExpiryMonitor from "../pages/ExpiryMonitor";
+import ForgotPassword from "../pages/ForgotPassword";
+import Help from "../pages/Help";
+import LandingPage from "../pages/LandingPage";
+import Login from "../pages/Login";
+import ProductDetails from "../pages/ProductDetails";
+import Products from "../pages/Products";
+import Reports from "../pages/Reports";
+import Settings from "../pages/Settings";
+import Signup from "../pages/Signup";
 
 export default function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/check-email" element={<CheckEmail />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout title="Dashboard" />}>
@@ -53,5 +57,5 @@ export default function AppRoutes() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
-  )
+  );
 }

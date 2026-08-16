@@ -1,62 +1,44 @@
-import { getProducts } from './productService'
-import { getExpiryStatus, EXPIRY_STATUS, getStatusLabel, getDaysRemaining } from '../utils/expiryUtils'
+import { getStatusLabel } from "../utils/expiryUtils";
+import { supabase } from "./supabaseClient";
 
-function delay(ms = 250) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+async function fetchSummary() {
+  const { data, error } = await supabase.rpc("get_report_summary").single();
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function getInventorySummary() {
-  await delay()
-  const products = await getProducts()
-  const totalQuantity = products.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const d = await fetchSummary();
   return {
-    totalProducts: products.length,
-    totalQuantity,
-    categories: new Set(products.map((item) => item.category)).size
-  }
+    totalProducts: d.total_products,
+    totalQuantity: d.total_quantity,
+    categories: d.total_categories,
+  };
 }
 
 export async function getExpiryStatusDistribution() {
-  await delay()
-  const products = await getProducts()
-  const counts = {}
-  Object.values(EXPIRY_STATUS).forEach((status) => {
-    counts[status] = 0
-  })
-  products.forEach((product) => {
-    const status = getExpiryStatus(product.expiryDate)
-    counts[status] += 1
-  })
-  return Object.entries(counts).map(([status, count]) => ({
-    status,
-    name: getStatusLabel(status),
-    value: count
-  }))
+  const d = await fetchSummary();
+  return d.distribution.map((row) => ({
+    status: row.status,
+    name: getStatusLabel(row.status),
+    value: row.count,
+  }));
 }
 
 export async function getCategoryBreakdown() {
-  await delay()
-  const products = await getProducts()
-  const counts = {}
-  products.forEach((product) => {
-    counts[product.category] = (counts[product.category] || 0) + 1
-  })
-  return Object.entries(counts).map(([category, count]) => ({ category, count }))
+  const d = await fetchSummary();
+  return d.category_breakdown.map((row) => ({
+    category: row.category,
+    count: row.count,
+  }));
 }
 
 export async function getExpiringThisMonth() {
-  await delay()
-  const products = await getProducts()
-  const now = new Date()
-  return products.filter((product) => {
-    const days = getDaysRemaining(product.expiryDate)
-    const expiry = new Date(product.expiryDate)
-    return days >= 0 && expiry.getMonth() === now.getMonth() && expiry.getFullYear() === now.getFullYear()
-  })
+  const d = await fetchSummary();
+  return d.expiring_this_month;
 }
 
 export async function getExpiredProducts() {
-  await delay()
-  const products = await getProducts()
-  return products.filter((product) => getExpiryStatus(product.expiryDate) === EXPIRY_STATUS.EXPIRED)
+  const d = await fetchSummary();
+  return d.expired_products;
 }

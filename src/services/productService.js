@@ -1,112 +1,90 @@
-import { getItem, setItem, STORAGE_KEYS } from '../utils/storage'
-import { mockProducts } from '../data/mockProducts'
-import { isBeforeDate } from '../utils/dateUtils'
+import { supabase } from "./supabaseClient";
 
-function delay(ms = 250) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+export const PRODUCT_CATEGORIES = [
+  "Medicine",
+  "Food",
+  "Beverages",
+  "Cosmetics",
+  "Household",
+  "Electronics",
+  "Other",
+];
 
-function readProducts() {
-  const existing = getItem(STORAGE_KEYS.PRODUCTS, null)
-  if (existing && Array.isArray(existing) && existing.length > 0) {
-    return existing
-  }
-  setItem(STORAGE_KEYS.PRODUCTS, mockProducts)
-  return mockProducts
-}
-
-function writeProducts(products) {
-  setItem(STORAGE_KEYS.PRODUCTS, products)
+function mapRow(row) {
+  return {
+    id: row.out_batch_id ?? row.batch_id,
+    productId: row.out_product_id ?? row.product_id,
+    name: row.out_name ?? row.name,
+    category: row.out_category ?? row.category,
+    batchNumber: row.out_batch_number ?? row.batch_number,
+    quantity: row.out_quantity ?? row.quantity,
+    purchaseDate: row.out_purchase_date ?? row.purchase_date,
+    expiryDate: row.out_expiry_date ?? row.expiry_date,
+    supplier: row.out_supplier ?? row.supplier ?? "",
+    description: row.out_description ?? row.description ?? "",
+    createdAt: row.out_created_at ?? row.created_at,
+  };
 }
 
 export async function getProducts() {
-  await delay()
-  return readProducts()
+  const { data, error } = await supabase
+    .from("product_batches_view")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data.map(mapRow);
 }
 
 export async function getProductById(id) {
-  await delay(150)
-  const products = readProducts()
-  const product = products.find((item) => item.id === id)
-  if (!product) throw new Error('Product could not be found.')
-  return product
-}
-
-function validateProduct(data) {
-  if (!data.name || !data.name.trim()) throw new Error('Product name required.')
-  if (!data.category) throw new Error('Category required.')
-  if (!data.batchNumber || !data.batchNumber.trim()) throw new Error('Batch number required.')
-  if (data.quantity === '' || data.quantity === null || Number(data.quantity) < 0) {
-    throw new Error('Quantity must be greater than or equal to zero.')
-  }
-  if (!data.purchaseDate) throw new Error('Purchase date required.')
-  if (!data.expiryDate) throw new Error('Expiry date required.')
-  if (isBeforeDate(data.expiryDate, data.purchaseDate)) {
-    throw new Error('Expiry date cannot be before purchase date.')
-  }
+  const { data, error } = await supabase
+    .from("product_batches_view")
+    .select("*")
+    .eq("batch_id", id)
+    .single();
+  if (error) throw new Error("Product could not be found.");
+  return mapRow(data);
 }
 
 export async function createProduct(data) {
-  await delay(300)
-  validateProduct(data)
-  const products = readProducts()
-  const product = {
-    id: `prod-${Date.now()}`,
-    name: data.name.trim(),
-    category: data.category,
-    batchNumber: data.batchNumber.trim(),
-    quantity: Number(data.quantity),
-    purchaseDate: data.purchaseDate,
-    expiryDate: data.expiryDate,
-    supplier: data.supplier || '',
-    description: data.description || '',
-    createdAt: new Date().toISOString().slice(0, 10)
-  }
-  const next = [product, ...products]
-  writeProducts(next)
-  return product
+  const { data: row, error } = await supabase
+    .rpc("create_product_batch", {
+      p_name: data.name,
+      p_category: data.category,
+      p_batch_number: data.batchNumber,
+      p_quantity: Number(data.quantity),
+      p_purchase_date: data.purchaseDate,
+      p_expiry_date: data.expiryDate,
+      p_supplier: data.supplier || null,
+      p_description: data.description || null,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return mapRow(row);
 }
 
 export async function updateProduct(id, data) {
-  await delay(300)
-  validateProduct(data)
-  const products = readProducts()
-  let updated = null
-  const next = products.map((item) => {
-    if (item.id !== id) return item
-    updated = {
-      ...item,
-      name: data.name.trim(),
-      category: data.category,
-      batchNumber: data.batchNumber.trim(),
-      quantity: Number(data.quantity),
-      purchaseDate: data.purchaseDate,
-      expiryDate: data.expiryDate,
-      supplier: data.supplier || '',
-      description: data.description || ''
-    }
-    return updated
-  })
-  if (!updated) throw new Error('Product could not be updated.')
-  writeProducts(next)
-  return updated
+  const { data: row, error } = await supabase
+    .rpc("update_product_batch", {
+      p_batch_id: id,
+      p_name: data.name,
+      p_category: data.category,
+      p_batch_number: data.batchNumber,
+      p_quantity: Number(data.quantity),
+      p_purchase_date: data.purchaseDate,
+      p_expiry_date: data.expiryDate,
+      p_supplier: data.supplier || null,
+      p_description: data.description || null,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return mapRow(row);
 }
 
 export async function deleteProduct(id) {
-  await delay(250)
-  const products = readProducts()
-  const exists = products.some((item) => item.id === id)
-  if (!exists) throw new Error('Product could not be deleted.')
-  writeProducts(products.filter((item) => item.id !== id))
-  return true
+  const { error } = await supabase
+    .from("product_batches")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error("Product could not be deleted.");
+  return true;
 }
-
-export const PRODUCT_CATEGORIES = [
-  'Medicine',
-  'Food',
-  'Beverages',
-  'Cosmetics',
-  'Household',
-  'Electronics',
-  'Other'
-]
